@@ -16,12 +16,12 @@
 
 package com.android.dx.dex.file;
 
+import com.android.dex.DexFormat;
 import com.android.dex.util.ExceptionWithContext;
 import com.android.dx.dex.DexOptions;
 import com.android.dx.dex.file.MixedItemSection.SortType;
 import com.android.dx.rop.cst.Constant;
 import com.android.dx.rop.cst.CstBaseMethodRef;
-import com.android.dx.rop.cst.CstCallSite;
 import com.android.dx.rop.cst.CstCallSiteRef;
 import com.android.dx.rop.cst.CstEnumRef;
 import com.android.dx.rop.cst.CstFieldRef;
@@ -31,7 +31,6 @@ import com.android.dx.rop.cst.CstString;
 import com.android.dx.rop.cst.CstType;
 import com.android.dx.rop.type.Type;
 import com.android.dx.util.ByteArrayAnnotatedOutput;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Writer;
@@ -140,7 +139,7 @@ public final class DexFile {
          * Prepare the list of sections in the order they appear in
          * the final output.
          */
-        if (dexOptions.canUseInvokeCustom()) {
+        if (dexOptions.apiIsSupported(DexFormat.API_METHOD_HANDLES)) {
             /*
              * Method handles and call sites only visible in DEX files
              * from SDK version 26 onwards. Do not create or add sections unless
@@ -568,12 +567,12 @@ public final class DexFile {
         classDefs.prepare();
         classData.prepare();
         wordData.prepare();
-        if (dexOptions.canUseInvokePolymorphic()) {
+        if (dexOptions.apiIsSupported(DexFormat.API_METHOD_HANDLES)) {
             // Prepare call site ids before byteData where the call site items are placed.
             callSiteIds.prepare();
         }
         byteData.prepare();
-        if (dexOptions.canUseInvokePolymorphic()) {
+        if (dexOptions.apiIsSupported(DexFormat.API_METHOD_HANDLES)) {
             // Prepare method handles after call site items placed in byteData.
             methodHandles.prepare();
         }

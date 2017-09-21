@@ -20,12 +20,13 @@ import com.android.dex.DexFormat;
 import com.android.dx.dex.DexOptions;
 import com.android.dx.rop.code.LocalItem;
 import com.android.dx.rop.cst.Constant;
-import com.android.dx.rop.cst.CstCallSiteRef;
 import com.android.dx.rop.cst.CstFieldRef;
 import com.android.dx.rop.cst.CstInteger;
 import com.android.dx.rop.cst.CstInterfaceMethodRef;
 import com.android.dx.rop.cst.CstInvokeDynamic;
+import com.android.dx.rop.cst.CstMethodHandle;
 import com.android.dx.rop.cst.CstMethodRef;
+import com.android.dx.rop.cst.CstProtoRef;
 import com.android.dx.rop.cst.CstType;
 import com.android.dx.rop.type.Prototype;
 import com.android.dx.rop.type.Type;
@@ -238,11 +239,13 @@ public class Simulator {
         }
 
         /** {@inheritDoc} */
+        @Override
         public void visitInvalid(int opcode, int offset, int length) {
             throw new SimException("invalid opcode " + Hex.u1(opcode));
         }
 
         /** {@inheritDoc} */
+        @Override
         public void visitNoArgs(int opcode, int offset, int length,
                 Type type) {
             switch (opcode) {
@@ -564,6 +567,7 @@ public class Simulator {
         }
 
         /** {@inheritDoc} */
+        @Override
         public void visitLocal(int opcode, int offset, int length,
                 int idx, Type type, int value) {
             /*
@@ -634,6 +638,7 @@ public class Simulator {
         }
 
         /** {@inheritDoc} */
+        @Override
         public void visitConstant(int opcode, int offset, int length,
                 Constant cst, int value) {
             switch (opcode) {
@@ -667,7 +672,7 @@ public class Simulator {
                      */
                     if (cst instanceof CstInterfaceMethodRef) {
                         if (opcode != ByteOps.INVOKEINTERFACE) {
-                            if (!dexOptions.canUseDefaultInterfaceMethods()) {
+                            if (!dexOptions.apiIsSupported(DexFormat.API_DEFAULT_INTERFACE_METHODS)) {
                                 throw new SimException(
                                     "default or static interface method used without " +
                                     "--min-sdk-version >= " + DexFormat.API_DEFAULT_INTERFACE_METHODS);
@@ -682,10 +687,10 @@ public class Simulator {
                     if (cst instanceof CstMethodRef) {
                         CstMethodRef methodRef = (CstMethodRef) cst;
                         if (methodRef.isSignaturePolymorphic()) {
-                            if (!dexOptions.canUseInvokePolymorphic()) {
+                            if (!dexOptions.apiIsSupported(DexFormat.API_METHOD_HANDLES)) {
                                 throw new SimException(
                                     "signature-polymorphic method called without " +
-                                    "--min-sdk-version >= " + DexFormat.API_INVOKE_POLYMORPHIC);
+                                    "--min-sdk-version >= " + DexFormat.API_METHOD_HANDLES);
                             }
                             if (opcode != ByteOps.INVOKEVIRTUAL) {
                                 throw new SimException(
@@ -706,11 +711,11 @@ public class Simulator {
                     break;
                 }
                 case ByteOps.INVOKEDYNAMIC: {
-                    if (!dexOptions.canUseInvokeCustom()) {
+                    if (!dexOptions.apiIsSupported(DexFormat.API_METHOD_HANDLES)) {
                         throw new SimException(
                             "invalid opcode " + Hex.u1(opcode) +
                             " (invokedynamic requires --min-sdk-version >= " +
-                            DexFormat.API_INVOKE_POLYMORPHIC + ")");
+                            DexFormat.API_METHOD_HANDLES + ")");
                     }
                     CstInvokeDynamic invokeDynamicRef = (CstInvokeDynamic) cst;
                     Prototype prototype = invokeDynamicRef.getPrototype();
@@ -735,6 +740,19 @@ public class Simulator {
                     machine.popArgs(frame, prototype);
                     break;
                 }
+                case ByteOps.LDC:
+                case ByteOps.LDC_W: {
+                    if ((cst instanceof CstMethodHandle || cst instanceof CstProtoRef)) {
+                        if (!dexOptions.apiIsSupported(DexFormat.API_CONST_METHOD_HANDLE)) {
+                            throw new SimException(
+                                "invalid constant type " + cst.typeName() +
+                                " requires --min-sdk-version >= " +
+                                DexFormat.API_CONST_METHOD_HANDLE + ")");
+                        }
+                    }
+                    machine.clearArgs();
+                    break;
+                }
                 default: {
                     machine.clearArgs();
                     break;
@@ -747,6 +765,7 @@ public class Simulator {
         }
 
         /** {@inheritDoc} */
+        @Override
         public void visitBranch(int opcode, int offset, int length,
                 int target) {
             switch (opcode) {
@@ -796,6 +815,7 @@ public class Simulator {
         }
 
         /** {@inheritDoc} */
+        @Override
         public void visitSwitch(int opcode, int offset, int length,
                 SwitchList cases, int padding) {
             machine.popArgs(frame, Type.INT);
@@ -805,6 +825,7 @@ public class Simulator {
         }
 
         /** {@inheritDoc} */
+        @Override
         public void visitNewarray(int offset, int length, CstType type,
                 ArrayList<Constant> initValues) {
             machine.popArgs(frame, Type.INT);
@@ -814,11 +835,13 @@ public class Simulator {
         }
 
         /** {@inheritDoc} */
+        @Override
         public void setPreviousOffset(int offset) {
             previousOffset = offset;
         }
 
         /** {@inheritDoc} */
+        @Override
         public int getPreviousOffset() {
             return previousOffset;
         }
